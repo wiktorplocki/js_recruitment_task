@@ -24,10 +24,24 @@ const apiClient = async (path, params) => {
     const result = await response.json();
     return result;
 };
+let apiResult; // for storing API calls
 
 let savedNewsIndexes = [];
 
 const readLaterList = document.querySelector('.readLaterList');
+const sectionSelect = document.querySelector('#sectionSelect');
+const newsList = document.querySelector('.newsList');
+
+sectionSelect.addEventListener('change', async (event) => {
+    while (newsList.lastElementChild) {
+        newsList.removeChild(newsList.lastElementChild);
+    }
+    apiResult = await apiClient('/search', {
+        'api-key': GUARDIAN_API_KEY,
+        section: event.target.value,
+    });
+    buildNewsList(apiResult.response.results, newsList);
+});
 
 const buildSavedNews = (item, parentNode) => {
     const savedNewsLiEl = document.createElement('li');
@@ -131,19 +145,9 @@ const buildNewsList = (data = [], parentNode) => {
     });
 };
 
-let apiResult; // for storing API calls
-
-const sectionSelect = document.querySelector('#sectionSelect');
-const newsList = document.querySelector('.newsList');
-
 (async () => {
     apiResult = await apiClient('/search', { 'api-key': GUARDIAN_API_KEY });
     console.log(apiResult);
     console.log(sectionSelect.value);
     buildNewsList(apiResult.response.results, newsList);
-    sectionSelect.addEventListener('change', () => {
-        while (newsList.lastElementChild) {
-            newsList.removeChild(newsList.lastElementChild);
-        }
-    });
 })();
