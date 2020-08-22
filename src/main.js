@@ -53,9 +53,45 @@ dbRequest.onsuccess = () => {
     db = dbRequest.result;
 };
 
+const compareArrays = (current, previous) => {
+    if (JSON.stringify(current) === JSON.stringify(previous)) {
+        console.log('Arrays are equal, returning previous data set');
+        return previous;
+    } else {
+        console.log('Arrays are different, returning oncoming fresh array');
+        return current;
+    }
+};
+
+let page = 1;
+let section = 'all';
+let data = [];
+
 const readLaterList = document.querySelector('.readLaterList');
-const sectionSelect = document.querySelector('#sectionSelect');
 const newsList = document.querySelector('.newsList');
+const sectionSelect = document.querySelector('#sectionSelect');
+const activePageSelect = document.querySelector('#activePageSelect');
+
+activePageSelect.addEventListener('change', async (event) => {
+    page = event.target.value;
+    while (newsList.lastElementChild) {
+        newsList.removeChild(newsList.lastElementChild);
+    }
+
+    let options = {
+        'api-key': GUARDIAN_API_KEY,
+        page,
+    };
+    if (section !== 'all') {
+        options = {
+            ...options,
+            section,
+        };
+    }
+    apiResult = await apiClient('/search', options);
+    data = compareArrays(apiResult.response.results, data);
+    buildNewsList(data, newsList);
+});
 
 sectionSelect.addEventListener('change', async (event) => {
     while (newsList.lastElementChild) {
@@ -64,15 +100,18 @@ sectionSelect.addEventListener('change', async (event) => {
 
     let options = {
         'api-key': GUARDIAN_API_KEY,
+        page,
     };
+    section = event.target.value;
     if (event.target.value !== 'all') {
         options = {
             ...options,
-            section: event.target.value,
+            section,
         };
     }
     apiResult = await apiClient('/search', options);
-    buildNewsList(apiResult.response.results, newsList);
+    data = compareArrays(apiResult.response.results, data);
+    buildNewsList(data, newsList);
 });
 
 const buildSavedNews = (item, parentNode) => {
@@ -187,16 +226,12 @@ const buildNewsList = (data = [], parentNode) => {
 
 (async () => {
     apiResult = await apiClient('/search', { 'api-key': GUARDIAN_API_KEY });
-    console.log(apiResult);
-    console.log(sectionSelect.value);
     let objectStore = db.transaction('savedNews').objectStore('savedNews');
     let savedNews = objectStore.getAll();
-    savedNews.onsuccess = () => {
-        console.log(savedNews.result);
+    savedNews.onsuccess = () =>
         savedNews.result.map((item) => buildSavedNews(item, readLaterList));
-    };
     newsList.removeChild(newsList.firstElementChild);
-    console.log(newsList.firstChild);
     readLaterList.removeChild(readLaterList.firstElementChild);
-    buildNewsList(apiResult.response.results, newsList);
+    data = apiResult.response.results;
+    buildNewsList(data, newsList);
 })();
