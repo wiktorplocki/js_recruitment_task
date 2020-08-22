@@ -25,6 +25,35 @@ const apiClient = async (path, params) => {
     return result;
 };
 
+let savedNewsIndexes = [];
+
+const readLaterList = document.querySelector('.readLaterList');
+
+const buildSavedNews = (item, parentNode) => {
+    const savedNewsLiEl = document.createElement('li');
+    const savedNewsTitleEl = document.createElement('h4');
+    savedNewsTitleEl.setAttribute('class', 'readLaterItem-title');
+    savedNewsTitleEl.innerText = item.webTitle;
+
+    const savedNewsActionsSectionEl = document.createElement('section');
+
+    const savedNewsActionsLink = document.createElement('a');
+    savedNewsActionsLink.setAttribute('href', item.webUrl);
+    savedNewsActionsLink.setAttribute('class', 'button button-clear');
+    savedNewsActionsLink.innerText = 'Read';
+
+    const savedNewsActionsRemove = document.createElement('button');
+    savedNewsActionsRemove.setAttribute('class', 'button button-clear');
+    savedNewsActionsRemove.innerText = 'Remove';
+
+    savedNewsActionsSectionEl.append(
+        savedNewsActionsLink,
+        savedNewsActionsRemove
+    );
+    savedNewsLiEl.append(savedNewsTitleEl, savedNewsActionsSectionEl);
+    parentNode.appendChild(savedNewsLiEl);
+};
+
 const buildNewsDetailsSection = (item, parentNode) => {
     const newsDetailsSectionEl = document.createElement('section');
     newsDetailsSectionEl.setAttribute('class', 'newsDetails');
@@ -61,6 +90,18 @@ const buildNewsActionsSection = (item, parentNode) => {
     const newsActionsReadLater = document.createElement('button');
     newsActionsReadLater.setAttribute('class', 'button button-outline');
     newsActionsReadLater.innerText = 'Read Later';
+    newsActionsReadLater.addEventListener('click', (event) => {
+        const articleNode = event.path.find(
+            ({ nodeName }) => nodeName === 'ARTICLE'
+        );
+        const childrenArray = Array.from(newsList.children);
+        const clickedIndex = childrenArray.findIndex((node) =>
+            node.textContent.includes(event.target.parentNode.parentNode.textContent)
+        );
+        savedNewsIndexes.push(clickedIndex);
+        articleNode.parentNode.removeChild(articleNode);
+        buildSavedNews(item, readLaterList);
+    });
 
     newsActionsSectionEl.append(newsActionsLink, newsActionsReadLater);
     parentNode.appendChild(newsActionsSectionEl);
