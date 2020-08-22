@@ -43,7 +43,6 @@ dbRequest.onerror = (event) => {
 };
 dbRequest.onupgradeneeded = () => {
     db = dbRequest.result;
-    console.log(db);
     if (!db.objectStoreNames.contains('savedNews')) {
         db.createObjectStore('savedNews', { keyPath: 'id' });
     }
@@ -55,22 +54,48 @@ dbRequest.onsuccess = () => {
 
 const compareArrays = (current, previous) => {
     if (JSON.stringify(current) === JSON.stringify(previous)) {
-        console.log('Arrays are equal, returning previous data set');
         return previous;
-    } else {
-        console.log('Arrays are different, returning oncoming fresh array');
-        return current;
     }
+    return current;
 };
 
 let page = 1;
 let section = 'all';
 let data = [];
+let searchString = '';
 
 const readLaterList = document.querySelector('.readLaterList');
 const newsList = document.querySelector('.newsList');
 const sectionSelect = document.querySelector('#sectionSelect');
 const activePageSelect = document.querySelector('#activePageSelect');
+const newsContentSearch = document.querySelector('#newsContentSearch');
+
+newsContentSearch.addEventListener('input', async (event) => {
+    searchString = event.target.value;
+    while (newsList.lastElementChild) {
+        newsList.removeChild(newsList.lastElementChild);
+    }
+
+    let options = {
+        'api-key': GUARDIAN_API_KEY,
+        page,
+        q: searchString,
+    };
+    if (section !== 'all') {
+        options = {
+            ...options,
+            section,
+        };
+    }
+    if (!searchString || searchString === '') {
+    // eslint-disable-next-line no-unused-vars
+        const { q, ...rest } = options;
+        options = rest;
+    }
+    apiResult = await apiClient('/search', options);
+    data = compareArrays(apiResult.response.results, data);
+    buildNewsList(data, newsList);
+});
 
 activePageSelect.addEventListener('change', async (event) => {
     page = event.target.value;
@@ -135,7 +160,7 @@ const buildSavedNews = (item, parentNode) => {
             .transaction('savedNews', 'readwrite')
             .objectStore('savedNews');
         let deleteRequest = objectStore.delete(item.id);
-        deleteRequest.onsuccess = () => console.log('Gone!', deleteRequest.result);
+        deleteRequest.onsuccess = () => console.log('Gone!');
         deleteRequest.onerror = (event) => console.log(event.target);
         const liNode = event.path.find(({ nodeName }) => nodeName === 'LI');
         liNode.parentNode.removeChild(liNode);
