@@ -3,6 +3,12 @@ import './styles/main.css';
 const GUARDIAN_API_KEY = '5beb9e2f-11b4-4b39-8b48-67be4429c7e6';
 const GUARDIAN_API_URL = 'https://content.guardianapis.com';
 
+if (!window.indexedDB) {
+    alert(
+        'Your browser does not support IndexedDB. You will not be able to store and read stored news items from the Read Later section'
+    );
+}
+
 const apiClient = async (path, params) => {
     function getQueryStringFromObject(object) {
         return Object.keys(object)
@@ -26,7 +32,26 @@ const apiClient = async (path, params) => {
 };
 let apiResult; // for storing API calls
 
-let savedNewsIndexes = [];
+const dbRequest = indexedDB.open('guardianNews');
+let db;
+dbRequest.onerror = (event) => {
+    console.error(
+        'ERROR: IndexedDB operation failed, printing the event data below:'
+    );
+    console.log('Error code:', event.target.errorCode);
+    console.log(event);
+};
+dbRequest.onupgradeneeded = () => {
+    db = dbRequest.result;
+    console.log(db);
+    if (!db.objectStoreNames.contains('savedNews')) {
+        db.createObjectStore('savedNews', { keyPath: 'id' });
+    }
+};
+dbRequest.onsuccess = () => {
+    console.log('success');
+    db = dbRequest.result;
+};
 
 const readLaterList = document.querySelector('.readLaterList');
 const sectionSelect = document.querySelector('#sectionSelect');
@@ -36,10 +61,17 @@ sectionSelect.addEventListener('change', async (event) => {
     while (newsList.lastElementChild) {
         newsList.removeChild(newsList.lastElementChild);
     }
-    apiResult = await apiClient('/search', {
+
+    let options = {
         'api-key': GUARDIAN_API_KEY,
-        section: event.target.value,
-    });
+    };
+    if (event.target.value !== 'all') {
+        options = {
+            ...options,
+            section: event.target.value,
+        };
+    }
+    apiResult = await apiClient('/search', options);
     buildNewsList(apiResult.response.results, newsList);
 });
 
@@ -59,6 +91,16 @@ const buildSavedNews = (item, parentNode) => {
     const savedNewsActionsRemove = document.createElement('button');
     savedNewsActionsRemove.setAttribute('class', 'button button-clear');
     savedNewsActionsRemove.innerText = 'Remove';
+    savedNewsActionsRemove.addEventListener('click', (event) => {
+        let objectStore = db
+            .transaction('savedNews', 'readwrite')
+            .objectStore('savedNews');
+        let deleteRequest = objectStore.delete(item.id);
+        deleteRequest.onsuccess = () => console.log('Gone!', deleteRequest.result);
+        deleteRequest.onerror = (event) => console.log(event.target);
+        const liNode = event.path.find(({ nodeName }) => nodeName === 'LI');
+        liNode.parentNode.removeChild(liNode);
+    });
 
     savedNewsActionsSectionEl.append(
         savedNewsActionsLink,
@@ -104,16 +146,14 @@ const buildNewsActionsSection = (item, parentNode) => {
     const newsActionsReadLater = document.createElement('button');
     newsActionsReadLater.setAttribute('class', 'button button-outline');
     newsActionsReadLater.innerText = 'Read Later';
-    newsActionsReadLater.addEventListener('click', (event) => {
-        const articleNode = event.path.find(
-            ({ nodeName }) => nodeName === 'ARTICLE'
-        );
-        const childrenArray = Array.from(newsList.children);
-        const clickedIndex = childrenArray.findIndex((node) =>
-            node.textContent.includes(event.target.parentNode.parentNode.textContent)
-        );
-        savedNewsIndexes.push(clickedIndex);
-        articleNode.parentNode.removeChild(articleNode);
+    newsActionsReadLater.addEventListener('click', () => {
+        let objectStore = db
+            .transaction('savedNews', 'readwrite')
+            .objectStore('savedNews');
+        const { id, webTitle, webUrl } = item;
+        let addRequest = objectStore.add({ id, webTitle, webUrl });
+        addRequest.onsuccess = () => console.log('Added!', addRequest.result);
+        addRequest.onerror = (event) => console.log(event.target.errorCode);
         buildSavedNews(item, readLaterList);
     });
 
@@ -149,5 +189,14 @@ const buildNewsList = (data = [], parentNode) => {
     apiResult = await apiClient('/search', { 'api-key': GUARDIAN_API_KEY });
     console.log(apiResult);
     console.log(sectionSelect.value);
+    let objectStore = db.transaction('savedNews').objectStore('savedNews');
+    let savedNews = objectStore.getAll();
+    savedNews.onsuccess = () => {
+        console.log(savedNews.result);
+        savedNews.result.map((item) => buildSavedNews(item, readLaterList));
+    };
+    newsList.removeChild(newsList.firstElementChild);
+    console.log(newsList.firstChild);
+    readLaterList.removeChild(readLaterList.firstElementChild);
     buildNewsList(apiResult.response.results, newsList);
 })();
