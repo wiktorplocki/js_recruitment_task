@@ -25,6 +25,71 @@ const apiClient = async (path, params) => {
     return result;
 };
 
+const buildNewsDetailsSection = (item, parentNode) => {
+    const newsDetailsSectionEl = document.createElement('section');
+    newsDetailsSectionEl.setAttribute('class', 'newsDetails');
+
+    const newsDetailsUl = document.createElement('ul');
+    const newsDetailsLiName = document.createElement('li');
+    const newsDetailsLiDate = document.createElement('li');
+
+    const newsDetailsLiNameStrong = document.createElement('strong');
+    newsDetailsLiNameStrong.innerText = 'Section Name: ';
+    newsDetailsLiName.append(newsDetailsLiNameStrong, item.sectionName);
+
+    const newsDetailsLiDateStrong = document.createElement('strong');
+    newsDetailsLiDateStrong.innerText = 'Publication Date: ';
+    newsDetailsLiDate.append(
+        newsDetailsLiDateStrong,
+        new Date(item.webPublicationDate).toDateString()
+    );
+
+    newsDetailsUl.append(newsDetailsLiName, newsDetailsLiDate);
+    newsDetailsSectionEl.appendChild(newsDetailsUl);
+    parentNode.appendChild(newsDetailsSectionEl);
+};
+
+const buildNewsActionsSection = (item, parentNode) => {
+    const newsActionsSectionEl = document.createElement('section');
+    newsActionsSectionEl.setAttribute('class', 'newsActions');
+
+    const newsActionsLink = document.createElement('a');
+    newsActionsLink.setAttribute('href', item.webUrl);
+    newsActionsLink.setAttribute('class', 'button');
+    newsActionsLink.innerText = 'Full article';
+
+    const newsActionsReadLater = document.createElement('button');
+    newsActionsReadLater.setAttribute('class', 'button button-outline');
+    newsActionsReadLater.innerText = 'Read Later';
+
+    newsActionsSectionEl.append(newsActionsLink, newsActionsReadLater);
+    parentNode.appendChild(newsActionsSectionEl);
+};
+
+const buildNewsArticle = (item, parentNode) => {
+    const articleEl = document.createElement('article');
+    articleEl.setAttribute('class', 'news');
+
+    const headerEl = document.createElement('header');
+    const headerH3El = document.createElement('h3');
+    headerH3El.innerText = item.webTitle;
+
+    headerEl.appendChild(headerH3El);
+    articleEl.appendChild(headerEl);
+
+    buildNewsDetailsSection(item, articleEl);
+    buildNewsActionsSection(item, articleEl);
+    parentNode.appendChild(articleEl);
+};
+
+const buildNewsList = (data = [], parentNode) => {
+    data.forEach((item) => {
+        const listItemEl = document.createElement('li');
+        buildNewsArticle(item, listItemEl);
+        parentNode.appendChild(listItemEl);
+    });
+};
+
 let apiResult; // for storing API calls
 
 const sectionSelect = document.querySelector('#sectionSelect');
@@ -34,6 +99,7 @@ const newsList = document.querySelector('.newsList');
     apiResult = await apiClient('/search', { 'api-key': GUARDIAN_API_KEY });
     console.log(apiResult);
     console.log(sectionSelect.value);
+    buildNewsList(apiResult.response.results, newsList);
     sectionSelect.addEventListener('change', () => {
         while (newsList.lastElementChild) {
             newsList.removeChild(newsList.lastElementChild);
